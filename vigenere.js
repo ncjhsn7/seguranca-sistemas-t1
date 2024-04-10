@@ -101,7 +101,7 @@ function breakCipher(ciphertext, language) {
 
 const language = 'PT';
 
-fs.readFile('b.txt', 'utf8', (err, data) => {
+fs.readFile('pt.txt', 'utf8', (err, data) => {
     if (err) {
         console.error("Error reading the file:", err);
         return;
