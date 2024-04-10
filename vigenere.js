@@ -1,5 +1,16 @@
 const fs = require('fs');
 
+const languageConfigs = {
+    'EN': {
+        expectedIoC: 0.065,
+        freqOrder: 'ETAOINSHRDLCUMWFGYPBVKJXQZ'
+    },
+    'PT': {
+        expectedIoC: 0.072,
+        freqOrder: 'AEOSRINDMTUCLPVQGBFZHJXKWY'
+    }
+};
+
 function calculateIoC(segment) {
     const freqs = new Array(26).fill(0);
     segment.split('').forEach(char => {
@@ -13,10 +24,10 @@ function calculateIoC(segment) {
     return freqs.reduce((sum, count) => sum + count * (count - 1), 0) / (total * (total - 1));
 }
 
-function estimateKeyLength(ciphertext) {
+function estimateKeyLength(ciphertext, language) {
+    const config = languageConfigs[language];
     let bestLength = 1;
     let bestIoCDifference = Infinity;
-    const expectedIoC = 0.065; // Approximate for English
 
     for (let keyLength = 1; keyLength <= 20; keyLength++) {
         let averageIoC = 0;
@@ -28,7 +39,7 @@ function estimateKeyLength(ciphertext) {
             averageIoC += calculateIoC(segment);
         }
         averageIoC /= keyLength;
-        const iocDifference = Math.abs(averageIoC - expectedIoC);
+        const iocDifference = Math.abs(averageIoC - config.expectedIoC);
         if (iocDifference < bestIoCDifference) {
             bestIoCDifference = iocDifference;
             bestLength = keyLength;
@@ -38,8 +49,8 @@ function estimateKeyLength(ciphertext) {
     return bestLength;
 }
 
-function calculateFrequencyScores(segment) {
-    const freqs = 'ETAOINSHRDLCUMWFGYPBVKJXQZ';
+function calculateFrequencyScores(segment, language) {
+    const freqs = languageConfigs[language].freqOrder;
     const segmentFreqs = new Array(26).fill(0);
     segment.split('').forEach(char => {
         const index = char.charCodeAt(0) - 'A'.charCodeAt(0);
@@ -63,8 +74,8 @@ function calculateFrequencyScores(segment) {
     return scores;
 }
 
-function breakCipher(ciphertext) {
-    const keyLength = estimateKeyLength(ciphertext);
+function breakCipher(ciphertext, language) {
+    const keyLength = estimateKeyLength(ciphertext, language);
     let key = '';
 
     for (let i = 0; i < keyLength; i++) {
@@ -72,7 +83,7 @@ function breakCipher(ciphertext) {
         for (let j = i; j < ciphertext.length; j += keyLength) {
             segment += ciphertext[j];
         }
-        const scores = calculateFrequencyScores(segment);
+        const scores = calculateFrequencyScores(segment, language);
         const maxScoreIndex = scores.indexOf(Math.max(...scores));
         key += String.fromCharCode('A'.charCodeAt(0) + maxScoreIndex);
     }
@@ -85,20 +96,28 @@ function breakCipher(ciphertext) {
         plaintext += String.fromCharCode(decodedCharCode);
     }
 
-    console.log("Estimated Key Length: " + keyLength);
-    console.log("Estimated Key: " + key);
-    return plaintext;
+    return { key, plaintext };
 }
 
-// Usage example, reading the ciphertext from a file
-fs.readFile('file.txt', 'utf8', (err, data) => {
+const language = 'PT';
+
+fs.readFile('b.txt', 'utf8', (err, data) => {
     if (err) {
         console.error("Error reading the file:", err);
         return;
     }
     const ciphertext = data.toUpperCase().replace(/[^A-Z]/g, "");
     console.time("DecryptionTime");
-    const decryptedText = breakCipher(ciphertext);
+    const { key, plaintext } = breakCipher(ciphertext, language);
     console.timeEnd("DecryptionTime");
-    console.log("Deciphered Text: " + decryptedText);
+    console.log("Estimated Key Length: " + key.length);
+    console.log("Estimated Key: " + key);
+    
+    fs.writeFile('decryptedText.txt', plaintext, (err) => {
+        if (err) {
+            console.error("Error writing the deciphered text to file:", err);
+        } else {
+            console.log("Deciphered text written to decryptedText.txt");
+        }
+    });
 });
